@@ -5,19 +5,38 @@
  * Nome: Fábio Thomaz.
  * Nome: Ricardo Oliveira.
  * Profº.: José Fontebasso Neto.
- * Discplina: Pesquisa Operacional - I.
+ * Disciplina: Pesquisa Operacional - I.
  * Universidade  Católica de Santos - Maio de 2019.
+*/
+/*
+PASSOS:
+- Inputs:
+1 - Ler a quantidade de variáveis;
+2 - Ler a quantidade de restrições;
+3 - Ler o tipo de problema;
+4 - Ler o(s) coeficiente(s) da função objetivo;
+5 - Ler o(s) coeficiente(s) da(s) variável(is) da(s) restrição(ões);
+6 - Ler o tipo de restrição;
+7 - Ler o termo independente da(s) restrição(ões);
+
+- Processamentos:
+1 - Verificar se algum dado precisa ter seu sinal invertido;
+2 - Colocar os dados dos inputs numa matriz;
+3 - Verificar se a matriz é viável;
+	3.1 - Se sim, vá para o passo 4;
+	3.2 - Se não for, então deixe viável e prossiga para o passo 4;
+4 - Otimize a matriz;
+
 */
 #include <stdio.h> // uso: inputs e outputs.
 #include <string.h> // uso: strcmp();
 #include <ctype.h> // uso: tolower();
 
-/* Estrutura para armazenar as informações das restrições*/
 typedef struct {
 	float coeficientes[20];
-	char tipo_rest[3]; // tipo de restrição.
-	float termo_ind; // termo independente.
-} funcaoObjetivo;
+	char tipo_rest[3];
+	float termo_ind;
+} Restricao;
 
 int main()
 {
@@ -59,24 +78,26 @@ int main()
 		}
 	}while(strcmp(problema, "max") != 0 && strcmp(problema, "min") != 0);
 
-	float coeficientes[qntdd_var]; // coeficientes.
-	funcaoObjetivo funcoes[qntdd_rest]; // dados das restricoes.
+	float funcao_objetivo[qntdd_var], auxiliar;
 
 	/* Input da função objetivo */
 	printf("\nFuncao objetivo\n");
 	for(i = 0; i < qntdd_var; i++)
 	{
 		printf("Coeficiente da variavel x%d: ", i);
-		while(scanf("%f", &coeficientes[i]) != 1){
+		while(scanf("%f", &auxiliar) != 1){
 			while((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
 			fprintf(stderr, "ERRO: input passado nao corresponde a um numero real.\n\n");
 			printf("Coeficiente da variavel x%d: ", i);
 		}
 		while((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
+		funcao_objetivo[i] = (-1) * auxiliar;
 	}
 
+	Restricao restricoes[qntdd_rest];
+
 	/* Input dos dados das restrições */
-	for(i = 0; i < qntdd_rest; i++)
+	for(i = 1; i < qntdd_rest; i++)
 	{
 		printf("\nRestricao %d:\n", i + 1);
 
@@ -84,7 +105,7 @@ int main()
 		for(j = 0; j < qntdd_var; j++)
 		{
 			printf("Coeficiente da variavel x%d: ", j);
-			while(scanf("%f", &funcoes[i].coeficientes[j]) != 1){
+			while(scanf("%f", &restricoes[i].coeficientes[j]) != 1){
 				while((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
 				fprintf(stderr, "ERRO: input passado nao corresponde a um numero real.\n\n");
 				printf("Coeficiente da variavel x%d: ", i);
@@ -95,15 +116,15 @@ int main()
 		do{
 			printf("\nOpcoes de restricao:\n==\n<=\n>=\n");
 			printf("Tipo de restricao: ");
-			scanf(" %3s", funcoes[i].tipo_rest);
+			scanf(" %3s", restricoes[i].tipo_rest);
 			while((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
-		}while(strcmp(funcoes[i].tipo_rest, "==") != 0 
-			&& strcmp(funcoes[i].tipo_rest, "<=") != 0 
-			&& strcmp(funcoes[i].tipo_rest, ">=") != 0);
+		}while(strcmp(restricoes[i].tipo_rest, "==") != 0 
+			&& strcmp(restricoes[i].tipo_rest, "<=") != 0 
+			&& strcmp(restricoes[i].tipo_rest, ">=") != 0);
 
 		/* Input do termo independente */
 		printf("Termo independente: ");
-		while(scanf("%f", &funcoes[i].termo_ind) != 1){
+		while(scanf("%f", &restricoes[i].termo_ind) != 1){
 			while((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
 			fprintf(stderr, "ERRO: input passado nao corresponde a um numero real.\n\n");
 			printf("Termo independente: ");
@@ -111,17 +132,5 @@ int main()
 		while((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
 	}
 
-	/*********************************************************************/
-	printf("\n......................................................................................................\n");
-	printf("\nIMPRESSAO PARA TESTE:\n");
-	for(i = 0; i < qntdd_rest; i++){
-		printf("\nRestricao %d:", i + 1);
-		for(j = 0; j < qntdd_var; j++){
-			printf("\nCoeficiente da variavel x%d: %.3f", j, funcoes[i].coeficientes[j]);
-		}
-		printf("\nTipo de restricao: %s", funcoes[i].tipo_rest);
-		printf("\nTermo independente: %.3f\n", funcoes[i].termo_ind);
-	}
-	/*********************************************************************/
 	return 0;
 }
