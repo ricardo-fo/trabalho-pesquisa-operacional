@@ -50,3 +50,5 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+.vscode/ipch/e20eaeed53b42615/mmap_address.bin
+.vscode/ipch/e20eaeed53b42615/T1_PO.ipch
