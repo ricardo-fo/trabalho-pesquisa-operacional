@@ -32,53 +32,39 @@ PASSOS:
 #include <string.h> // uso: strcmp();
 #include <ctype.h> // uso: tolower();
 
-typedef struct {
-	double coeficientes[20];
-	char tipo_rest[3];
-	double termo_ind;
-} Restricao;
-
-int inicializar_valor(char *);
-void tipo_problema(char * problema);
-void inicializar_objetivo(double *, int);
-void inicializar_restricoes(int, int, Restricao *);
-void zera_matriz(int, int, double[][*]);
-void inicializar_matriz_problema(int, int, double[][*], Restricao *, int);
-void print_matriz(int, int, double[][*]);
-void inicializar_solucao(double *, int, Restricao *);
+int inicializar_valor_inteiro(char *);
+void receber_tipo_problema(char *);
+void inicializar_objetivo(double *, char *, int, int);
+void inicializar_matriz_problema(int, int, double[][*], int, int, double *);
+void print_matriz(int, int, double[][*], double *, double, double *);
 
 int main()
 {
-	int qntdd_var, qntdd_rest, l, c; // quantidade de variáveis e quantidade de restrições.
+	int qntdd_var, qntdd_rest, larg_matriz, comp_matriz; // quantidade de variáveis e quantidade de restrições.
 	char problema[4];
 
-	qntdd_var = inicializar_valor("variaveis");
-	qntdd_rest = inicializar_valor("restricoes");
+	qntdd_var = inicializar_valor_inteiro("variaveis");
+	qntdd_rest = inicializar_valor_inteiro("restricoes");
 
-	tipo_problema(problema);
+	receber_tipo_problema(problema);
 
-	double funcao_objetivo[qntdd_var], auxiliar;
-	inicializar_objetivo(funcao_objetivo, qntdd_var);
+	larg_matriz = qntdd_rest;
+	comp_matriz = qntdd_rest + qntdd_var;
 
-	Restricao restricoes[qntdd_rest];
-	inicializar_restricoes(qntdd_rest, qntdd_var, restricoes);
+	double objetivos[comp_matriz];
+	inicializar_objetivo(objetivos, problema, qntdd_var, qntdd_rest);
 
-	l = qntdd_rest;
-	c = qntdd_rest + qntdd_var;
-
-	double matriz_problema[l][c];
-	zera_matriz(l, c, matriz_problema);
-	print_matriz(l, c, matriz_problema);
-
-	inicializar_matriz_problema(qntdd_rest, qntdd_rest + qntdd_var, matriz_problema, restricoes, qntdd_var);
-
+	double matriz_problema[larg_matriz][comp_matriz];
 	double solucoes[qntdd_rest];
-	inicializar_solucao(solucoes, qntdd_rest, restricoes);
+	double solucao_objetivo = 0.0;
+	inicializar_matriz_problema(larg_matriz, comp_matriz, matriz_problema, qntdd_var, qntdd_rest, solucoes);
+
+	print_matriz(larg_matriz, comp_matriz, matriz_problema, solucoes, solucao_objetivo, objetivos);
 
 	return 0;
 }
 
-int inicializar_valor(char * msg) {
+int inicializar_valor_inteiro(char * msg) {
 	char buffer;
 	int valor;
 	/* Input da quantidade de variáveis */
@@ -95,7 +81,7 @@ int inicializar_valor(char * msg) {
 	return valor;
 }
 
-void tipo_problema(char * problema) {
+void receber_tipo_problema(char * problema) {
 	char buffer;
 	int i;
 	/* Input do tipo de problema */
@@ -110,24 +96,31 @@ void tipo_problema(char * problema) {
 	} while (strcmp(problema, "max") != 0 && strcmp(problema, "min") != 0);
 }
 
-void inicializar_objetivo(double * funcao_objetivo, int qntdd_var) {
+void inicializar_objetivo(double * objetivo, char * problema, int qntdd_var, int qntdd_rest) {
 	int i;
 	char buffer;
 	/* Input da função objetivo */
 	printf("\nFuncao objetivo\n");
-	for (i = 0; i < qntdd_var; i++)
-	{
+	for (i = 0; i < qntdd_var; i++) {
 		printf("Coeficiente da variavel x%d: ", i);
-		while (scanf("%lf", &funcao_objetivo[i]) != 1) {
+		while (scanf("%lf", &objetivo[i]) != 1) {
 			while ((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
 			fprintf(stderr, "ERRO: input passado nao corresponde a um numero real.\n\n");
 			printf("Coeficiente da variavel x%d: ", i);
 		}
 		while ((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
+
+		if(strcmp(problema, "max") == 0) {
+			objetivo[i] *= -1;
+		}
+	}
+
+	for (i = 0; i < qntdd_rest; i++) {
+		objetivo[i + qntdd_var] = 0;
 	}
 }
 
-void inicializar_restricoes(int qntdd_rest, int qntdd_var, Restricao * restricoes) {
+void inicializar_matriz_problema(int l, int c, double matriz_problema[][c], int qntdd_var, int qntdd_rest, double * solucoes) {
 	int i, j;
 	char buffer;
 	/* Input dos dados das restrições */
@@ -139,25 +132,44 @@ void inicializar_restricoes(int qntdd_rest, int qntdd_var, Restricao * restricoe
 		for (j = 0; j < qntdd_var; j++)
 		{
 			printf("Coeficiente da variavel x%d: ", j);
-			while (scanf("%lf", &restricoes[i].coeficientes[j]) != 1) {
+			while (scanf("%lf", &matriz_problema[i][j]) != 1) {
 				while ((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
 				fprintf(stderr, "ERRO: input passado nao corresponde a um numero real.\n\n");
 				printf("Coeficiente da variavel x%d: ", i);
 			}
 			while ((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
 		}
+		
+		for (j = qntdd_var; j < c; j++) {
+			if (qntdd_var + i == j) {
+				matriz_problema[i][j] = 1;
+			}
+			else {
+				matriz_problema[i][j] = 0;
+			}
+		}
+		
+		char tipo_restricao[3];
 		/* Input do tipo de restricao */
 		do {
 			printf("\nOpcoes de restricao:\n==\n<=\n>=\n");
 			printf("Tipo de restricao: ");
-			scanf(" %3s", restricoes[i].tipo_rest);
+			scanf(" %3s", tipo_restricao);
 			while ((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
-		} while (strcmp(restricoes[i].tipo_rest, "==") != 0
-			&& strcmp(restricoes[i].tipo_rest, "<=") != 0
-			&& strcmp(restricoes[i].tipo_rest, ">=") != 0);
+		} while (strcmp(tipo_restricao, "==") != 0 && strcmp(tipo_restricao, "<=") != 0 && strcmp(tipo_restricao, ">=") != 0);
+
+		if(strcmp(tipo_restricao, "==") == 0) {
+			//TODO
+		} else if (strcmp(tipo_restricao, ">=") == 0) {
+			for (j = 0; j < qntdd_var; j++)
+			{
+				matriz_problema[i][j] *= -1;
+			}
+		}
+		
 		/* Input do termo independente */
 		printf("Termo independente: ");
-		while (scanf("%lf", &restricoes[i].termo_ind) != 1) {
+		while (scanf("%lf", &solucoes[i]) != 1) {
 			while ((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
 			fprintf(stderr, "ERRO: input passado nao corresponde a um numero real.\n\n");
 			printf("Termo independente: ");
@@ -166,75 +178,27 @@ void inicializar_restricoes(int qntdd_rest, int qntdd_var, Restricao * restricoe
 	}
 }
 
-void zera_matriz(int l, int c, double matriz[][c]) {
-	int i, j;
-	for (i = 0; i < l; i++)
-	{
-		for (j = 0; j < c; j++) {
-			matriz[i][j] = 0;
-		}
-	}
-}
-
-void inicializar_matriz_problema(int l, int c, double matriz_problema[][c], Restricao * restricoes, int qntdd_var) {
-	int i, j;
-	for (i = 0; i < l; i++)
-	{
-		if (strcmp(restricoes[i].tipo_rest, "==") == 0) {
-			return;
-		}
-		else if (strcmp(restricoes[i].tipo_rest, ">=") == 0) {
-			for (j = 0; j < qntdd_var; j++) {
-				matriz_problema[i][j] = restricoes[i].coeficientes[j] * (-1);
-			}
-			for (j = qntdd_var; j < c; j++) {
-				if (qntdd_var + i == j) {
-					matriz_problema[i][j] = 1;
-				}
-				else {
-					matriz_problema[i][j] = 0;
-				}
-			}
-		}
-		else if (strcmp(restricoes[i].tipo_rest, "<=") == 0) {
-			for (j = 0; j < qntdd_var; j++) {
-				matriz_problema[i][j] = restricoes[i].coeficientes[j];
-			}
-			for (j = qntdd_var; j < c; j++) {
-				if (qntdd_var + i == j) {
-					matriz_problema[i][j] = 1;
-				}
-				else {
-					matriz_problema[i][j] = 0;
-				}
-			}
-		}
-	}
-}
-
-void print_matriz(int l, int c, double matriz[][c])
+void print_matriz(int larg_matriz, int comp_matriz, double matriz[][comp_matriz], double * solucoes, double solucao_objetivo, double * objetivo)
 {
 	int i, j;
-	for (i = 0; i < l; i++) {
-		for (j = 0; j < c; j++) {
-			printf("%lf ", matriz[i][j]);
-		}
-		printf("\n");
-	}
-}
 
-void inicializar_solucao(double * solucoes, int qntdd_rest, Restricao * restricoes)
-{
-	int i;
-	for (i = 0; i < qntdd_rest; i++) {
-		if (strcmp(restricoes[i].tipo_rest, "==") == 0) {
-			return;
+	printf("Base\t");
+	for (i = 0; i < comp_matriz; i++) {
+		printf("x%d\t", i);
+	}
+	printf("Solucao\n");
+
+	printf("z\t");
+	for (i = 0; i < comp_matriz; i++) {
+		printf("%.2lf\t", objetivo[i]);
+	}
+	printf("%.2lf\n", solucao_objetivo);
+
+	for (i = 0; i < larg_matriz; i++) {
+		printf("x%d\t", comp_matriz - larg_matriz + i);
+		for (j = 0; j < comp_matriz; j++) {
+			printf("%.2lf\t", matriz[i][j]);
 		}
-		else if (strcmp(restricoes[i].tipo_rest, ">=") == 0) {
-			solucoes[i] = restricoes[i].termo_ind * (-1);
-		}
-		else if (strcmp(restricoes[i].tipo_rest, "<=") == 0) {
-			solucoes[i] = restricoes[i].termo_ind;
-		}
+		printf("%.2lf\n", solucoes[i]);
 	}
 }
