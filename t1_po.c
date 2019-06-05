@@ -29,8 +29,6 @@ void tornar_viavel(double[][*], double *, double *, int *);
 void otimizar_resultado(double[][*], double *, double *, int *);
 void pivotamento(double[][*], double *, double *, int *, int, int);
 
-//void analisar_recursos();
-
 int qntdd_var, qntdd_rest;
 int larg_matriz, comp_matriz, larg_real, comp_real;
 double solucao_objetivo;
@@ -69,17 +67,14 @@ int main()
 
 	inicializar_objetivo(objetivos, problema);
 
-	inicializar_matriz(matriz, solucoes, objetivos);
+	inicializar_matriz(matriz, objetivos, solucoes);
 
 	printf("\nQuadro inicial\n");
-	print_matriz(matriz, solucoes, objetivos, indices);
+	print_matriz(matriz, objetivos, solucoes, indices);
 
-	simplex(matriz, solucoes, objetivos, indices);
+	simplex(matriz, objetivos, solucoes, indices);
 
 	print_solucao(solucoes, indices);
-
-	//printf("\nAnalise de Sensibilidade\n");
-	//analisar_recursos();
 
 	return 0;
 }
@@ -138,7 +133,7 @@ void inicializar_objetivo(double * objetivos, char * problema) {
 	}
 }
 
-void inicializar_matriz(double matriz[larg_real][comp_real], double * solucoes, double * objetivos) {
+void inicializar_matriz(double matriz[larg_real][comp_real], double * objetivos, double * solucoes) {
 	int i, j, k = 0;
 	char buffer;
 	bool igual_igual = false;
@@ -204,7 +199,7 @@ void inicializar_matriz(double matriz[larg_real][comp_real], double * solucoes, 
 	}
 }
 
-void print_matriz(double matriz[larg_matriz][comp_real], double * solucoes, double * objetivos, int * indices)
+void print_matriz(double matriz[larg_matriz][comp_real], double * objetivos, double * solucoes, int * indices)
 {
 	int i, j;
 
@@ -237,7 +232,7 @@ void print_solucao(double * solucoes, int * indices) {
 	}
 }
 
-void simplex(double matriz[larg_matriz][comp_real], double * solucoes, double * objetivos, int * indices)
+void simplex(double matriz[larg_matriz][comp_real], double * objetivos, double * solucoes, int * indices)
 {
     bool is_solved = false;
     bool continuar;
@@ -248,7 +243,7 @@ void simplex(double matriz[larg_matriz][comp_real], double * solucoes, double * 
 
         for(i = 0; i < larg_matriz; i++){
             if(solucoes[i] < 0) {
-                tornar_viavel(matriz, solucoes, objetivos, indices);
+                tornar_viavel(matriz, objetivos, solucoes, indices);
                 continuar = false;
                 break;
             }
@@ -257,7 +252,7 @@ void simplex(double matriz[larg_matriz][comp_real], double * solucoes, double * 
 
         for(i = 0; i < comp_matriz; i++){
             if(objetivos[i] < 0) {
-                otimizar_resultado(matriz, solucoes, objetivos, indices);
+                otimizar_resultado(matriz, objetivos, solucoes, indices);
                 continuar = false;
                 break;
             }
@@ -267,7 +262,7 @@ void simplex(double matriz[larg_matriz][comp_real], double * solucoes, double * 
     }
 }
 
-void tornar_viavel(double matriz[larg_matriz][comp_real], double * solucoes, double * objetivos, int * indices) {
+void tornar_viavel(double matriz[larg_matriz][comp_real], double * objetivos, double * solucoes, int * indices) {
     int i;
     int menor_larg = 0;
     for(i = 1; i < larg_matriz; i++) if(solucoes[i] < solucoes[menor_larg]) menor_larg = i;
@@ -280,10 +275,10 @@ void tornar_viavel(double matriz[larg_matriz][comp_real], double * solucoes, dou
         }
     }
 
-    pivotamento(matriz, solucoes, objetivos, indices, menor_larg, menor_comp);
+    pivotamento(matriz, objetivos, solucoes, indices, menor_larg, menor_comp);
 }
 
-void otimizar_resultado(double matriz[larg_matriz][comp_real], double * solucoes, double * objetivos, int * indices) {
+void otimizar_resultado(double matriz[larg_matriz][comp_real], double * objetivos, double * solucoes, int * indices) {
     int i;
     int menor_comp = 0;
     for(i = 1; i < comp_matriz; i++) {
@@ -292,16 +287,16 @@ void otimizar_resultado(double matriz[larg_matriz][comp_real], double * solucoes
 
     int menor_larg = -1;
     for(i = 0; i < larg_matriz; i++) {
-        if(abs((long)(matriz[i][menor_comp] * PRECISAO)) != 0 && abs((long)((solucoes[i] / matriz[i][menor_comp]) * PRECISAO)) > 0) {
+        if(abs((long)(matriz[i][menor_comp] * PRECISAO)) != 0 && (long)((solucoes[i] / matriz[i][menor_comp]) * PRECISAO) > 0) {
             if(menor_larg == -1) menor_larg = i;
 			else if(solucoes[i] / matriz[i][menor_comp] < solucoes[menor_larg] / matriz[menor_larg][menor_comp]) menor_larg = i;
         }
     }
 
-    pivotamento(matriz, solucoes, objetivos, indices, menor_larg, menor_comp);
+    pivotamento(matriz, objetivos, solucoes, indices, menor_larg, menor_comp);
 }
 
-void pivotamento(double matriz[larg_matriz][comp_real], double * solucoes, double * objetivos, int * indices, int x, int y) {
+void pivotamento(double matriz[larg_matriz][comp_real], double * objetivos, double * solucoes, int * indices, int x, int y) {
     static int interacao = 1;
     int i, j;
 	double pivo, multiplicar;
@@ -338,6 +333,6 @@ void pivotamento(double matriz[larg_matriz][comp_real], double * solucoes, doubl
         solucoes[i] += multiplicar * solucoes[x] * (-1);
 		if(abs((long)(solucoes[i] * PRECISAO)) == 0) solucoes[i] = abs(solucoes[i]);
     }
-
-	print_matriz(matriz, solucoes, objetivos, indices);
+	
+	print_matriz(matriz, objetivos, solucoes, indices);
 }
