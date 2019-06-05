@@ -12,6 +12,7 @@
 #include <stdio.h> // uso: inputs e outputs.
 #include <string.h> // uso: strcmp();
 #include <ctype.h> // uso: tolower();
+#include <stdlib.h>
 #include <stdbool.h>
 
 #define PRECISAO 1000
@@ -19,17 +20,21 @@
 int inicializar_valor_inteiro(char *);
 void receber_tipo_problema(char *);
 void inicializar_objetivo(double *, char *, int, int);
-void inicializar_matriz_problema(int, int, double[][*], int, int, double *);
-void print_matriz(int, int, double[][*], double *, double *, double *, int *);
+void inicializar_matriz_problema(int *, int *, int, int, double[][*], int, int *, double *, double *);
+void print_matriz(int, int, double[][*], double *, double, double *, int *);
+void print_solucao(int, int, double *, double, int *);
 
 void simplex(int, int, double[][*], double *, double *, double *, int *);
 void tornar_viavel(int, int, double[][*], double *, double *, double *, int *);
 void otimizar_resultado(int, int, double[][*], double *, double *, double *, int *);
 void pivotamento(int, int, double[][*], double *, double *, double *, int *, int, int);
 
+int larg_real;
+int comp_real;
+
 int main()
 {
-	int qntdd_var, qntdd_rest, larg_matriz, comp_matriz, i; // quantidade de variáveis e quantidade de restrições.
+	int qntdd_var, qntdd_rest, larg_matriz, comp_matriz, i,j; // quantidade de variáveis e quantidade de restrições.
 	char problema[4];
 
 	qntdd_var = inicializar_valor_inteiro("variaveis");
@@ -40,21 +45,37 @@ int main()
 	larg_matriz = qntdd_rest;
 	comp_matriz = qntdd_rest + qntdd_var;
 
-	double objetivos[comp_matriz];
+	larg_real = larg_matriz * 2;
+	comp_real = comp_matriz + larg_matriz;
+
+	double objetivos[comp_real];
+	for(i = 0; i < comp_real; i++) {
+		objetivos[i] = 0;
+	}
 	inicializar_objetivo(objetivos, problema, qntdd_var, qntdd_rest);
 
-	double matriz_problema[larg_matriz][comp_matriz];
-	double solucoes[qntdd_rest];
-	double solucao_objetivo = 0.0;
-	inicializar_matriz_problema(larg_matriz, comp_matriz, matriz_problema, qntdd_var, qntdd_rest, solucoes);
-	int indices[comp_matriz];
-	for(i = 0; i < comp_matriz; i++) indices[i] = i;
+	double matriz_problema[larg_real][comp_real];
+	for(i = 0; i < larg_real; i++) {
+		for(j = 0; j < comp_real; j++) {
+			matriz_problema[i][j] = 0;
+		}
+	}
 
-	print_matriz(larg_matriz, comp_matriz, matriz_problema, solucoes, &solucao_objetivo, objetivos, indices);
+	double solucoes[larg_real];
+	for(i = 0; i < larg_real; i++) {
+		solucoes[i] = 0;
+	}
+	double solucao_objetivo = 0.0;
+	inicializar_matriz_problema(&larg_matriz, &comp_matriz, larg_real, comp_real, matriz_problema, qntdd_var, &qntdd_rest, solucoes, objetivos);
+	int indices[comp_matriz];
+	for(i = 0; i < comp_matriz; i++) indices[i] = i + qntdd_var;
+
+	printf("\nQuadro inicial\n");
+	print_matriz(larg_matriz, comp_matriz, matriz_problema, solucoes, solucao_objetivo, objetivos, indices);
 
 	simplex(larg_matriz, comp_matriz, matriz_problema, solucoes, &solucao_objetivo, objetivos, indices);
 
-	print_matriz(larg_matriz, comp_matriz, matriz_problema, solucoes, &solucao_objetivo, objetivos, indices);
+	print_solucao(qntdd_var, larg_matriz, solucoes, solucao_objetivo, indices);
 
 	return 0;
 }
@@ -80,8 +101,9 @@ void receber_tipo_problema(char * problema) {
 	char buffer;
 	int i;
 	/* Input do tipo de problema */
+	printf("\n");
 	do {
-		printf("\nTipo de problema (max/min): ");
+		printf("Tipo de problema (max/min): ");
 		scanf(" %3[a-xA-X]", problema); // fomatação para leitura de apenas letras minusculas.
 		while (getchar() != '\n'); // limpeza do buffer do teclado.
 
@@ -107,6 +129,7 @@ void inicializar_objetivo(double * objetivo, char * problema, int qntdd_var, int
 
 		if(strcmp(problema, "max") == 0) {
 			objetivo[i] *= -1;
+			if(abs((long)(objetivo[i] * PRECISAO)) == 0) objetivo[i] = abs(objetivo[i]);
 		}
 	}
 
@@ -115,27 +138,48 @@ void inicializar_objetivo(double * objetivo, char * problema, int qntdd_var, int
 	}
 }
 
-void inicializar_matriz_problema(int l, int c, double matriz_problema[][c], int qntdd_var, int qntdd_rest, double * solucoes) {
-	int i, j;
+void inicializar_matriz_problema(int * l, int * c, int larg_real, int comp_real, double matriz_problema[larg_real][comp_real], int qntdd_var, int * qntdd_rest, double * solucoes, double * objetivos) {
+	int i, j, k = 0;
 	char buffer;
+	bool igual_igual = false;
+	char tipo_restricao[3];
 	/* Input dos dados das restrições */
-	for (i = 0; i < qntdd_rest; i++)
+	for (i = 0; i < (*qntdd_rest); i++)
 	{
-		printf("\nRestricao %d:\n", i + 1);
+		if(!igual_igual) {
+			printf("\nRestricao %d:\n", i + 1 - k);
 
-		/* Input dos coeficientes da variavel*/
-		for (j = 0; j < qntdd_var; j++)
-		{
-			printf("Coeficiente da variavel x%d: ", j);
-			while (scanf("%lf", &matriz_problema[i][j]) != 1) {
+			/* Input dos coeficientes da variavel*/
+			for (j = 0; j < qntdd_var; j++)
+			{
+				printf("Coeficiente da variavel x%d: ", j);
+				while (scanf("%lf", &matriz_problema[i][j]) != 1) {
+					while ((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
+					fprintf(stderr, "ERRO: input passado nao corresponde a um numero real.\n\n");
+					printf("Coeficiente da variavel x%d: ", j);
+				}
+				while ((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
+			}
+
+			/* Input do tipo de restricao */
+			do {
+				printf("\nOpcoes de restricao:\n==\n<=\n>=\n");
+				printf("Tipo de restricao: ");
+				scanf(" %3s", tipo_restricao);
+				while ((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
+			} while (strcmp(tipo_restricao, "==") != 0 && strcmp(tipo_restricao, "<=") != 0 && strcmp(tipo_restricao, ">=") != 0);
+
+			/* Input do termo independente */
+			printf("Termo independente: ");
+			while (scanf("%lf", &solucoes[i]) != 1) {
 				while ((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
 				fprintf(stderr, "ERRO: input passado nao corresponde a um numero real.\n\n");
-				printf("Coeficiente da variavel x%d: ", j);
+				printf("Termo independente: ");
 			}
 			while ((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
 		}
 
-		for (j = qntdd_var; j < c; j++) {
+		for (j = qntdd_var; j < (*c); j++) {
 			if (qntdd_var + i == j) {
 				matriz_problema[i][j] = 1;
 			}
@@ -144,43 +188,38 @@ void inicializar_matriz_problema(int l, int c, double matriz_problema[][c], int 
 			}
 		}
 
-		char tipo_restricao[3];
-		/* Input do tipo de restricao */
-		do {
-			printf("\nOpcoes de restricao:\n==\n<=\n>=\n");
-			printf("Tipo de restricao: ");
-			scanf(" %3s", tipo_restricao);
-			while ((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
-		} while (strcmp(tipo_restricao, "==") != 0 && strcmp(tipo_restricao, "<=") != 0 && strcmp(tipo_restricao, ">=") != 0);
-
-		/* Input do termo independente */
-		printf("Termo independente: ");
-		while (scanf("%lf", &solucoes[i]) != 1) {
-			while ((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
-			fprintf(stderr, "ERRO: input passado nao corresponde a um numero real.\n\n");
-			printf("Termo independente: ");
-		}
-		while ((buffer = getchar()) != '\n'); // limpeza do buffer do teclado.
-
-		if(strcmp(tipo_restricao, "==") == 0) {
-			//TODO
-		} else if (strcmp(tipo_restricao, ">=") == 0) {
+		if(!igual_igual && strcmp(tipo_restricao, "==") == 0) {
+			for (j = 0; j < qntdd_var; j++) {
+				matriz_problema[i + 1][j] = matriz_problema[i][j];
+			}
+			solucoes[i + 1] = solucoes[i];
+			
+			igual_igual = true;
+			(*l)++;
+			(*c)++;
+			(*qntdd_rest)++;
+			k++;
+		} else if (igual_igual || strcmp(tipo_restricao, ">=") == 0) {
 			for (j = 0; j < qntdd_var; j++)
 			{
 				matriz_problema[i][j] *= -1;
+				if(abs((long)(matriz_problema[i][j] * PRECISAO)) == 0) matriz_problema[i][j] = abs(matriz_problema[i][j]);
 			}
 			solucoes[i] *= -1;
+			if(abs((long)(solucoes[i] * PRECISAO)) == 0) solucoes[i] = abs(solucoes[i]);
+			
+			igual_igual = false;
 		}
 	}
 }
 
-void print_matriz(int larg_matriz, int comp_matriz, double matriz[][comp_matriz], double * solucoes, double * solucao_objetivo, double * objetivo, int * indices)
+void print_matriz(int larg_matriz, int comp_matriz, double matriz[larg_matriz][comp_real], double * solucoes, double solucao_objetivo, double * objetivo, int * indices)
 {
 	int i, j;
 
 	printf("Base\t");
 	for (i = 0; i < comp_matriz; i++) {
-		printf("x%d\t", indices[i]);
+		printf("x%d\t", i);
 	}
 	printf("Solucao\n");
 
@@ -188,19 +227,31 @@ void print_matriz(int larg_matriz, int comp_matriz, double matriz[][comp_matriz]
 	for (i = 0; i < comp_matriz; i++) {
 		printf("%.2lf\t", objetivo[i]);
 	}
-	printf("%.2lf\n", (*solucao_objetivo));
+	printf("%.2lf\n", solucao_objetivo);
 
 	for (i = 0; i < larg_matriz; i++) {
-		printf("x%d\t", comp_matriz - larg_matriz + i);
+		printf("x%d\t", indices[i]);
 		for (j = 0; j < comp_matriz; j++) {
 			printf("%.2lf\t", matriz[i][j]);
 		}
 		printf("%.2lf\n", solucoes[i]);
 	}
-	printf("\n\n");
 }
 
-void simplex(int larg_matriz, int comp_matriz, double matriz[][comp_matriz], double * solucoes, double * solucao_objetivo, double * objetivo, int * indices)
+void print_solucao(int qntdd_var, int larg_matriz, double * solucoes, double solucao_objetivo, int * indices) {
+	printf("Solucao: %.2lf\n", solucao_objetivo);
+	int i, j;
+	for(i = 0; i < qntdd_var; i++) {
+		for(j = 0; j < larg_matriz; j++) {
+			if(i == indices[j]) {
+				printf("x%d: %.2lf\n", i, solucoes[j]);
+				break;
+			}
+		}
+	}
+}
+
+void simplex(int larg_matriz, int comp_matriz, double matriz[larg_matriz][comp_real], double * solucoes, double * solucao_objetivo, double * objetivo, int * indices)
 {
     bool is_solved = false;
     bool continuar;
@@ -217,7 +268,7 @@ void simplex(int larg_matriz, int comp_matriz, double matriz[][comp_matriz], dou
         if(!continuar){
             continue;
         }
-        for(i = 0; i < larg_matriz; i++){
+        for(i = 0; i < comp_matriz; i++){
             if(objetivo[i] < 0) {
                 otimizar_resultado(larg_matriz, comp_matriz, matriz, solucoes, solucao_objetivo, objetivo, indices);
                 continuar = false;
@@ -231,16 +282,16 @@ void simplex(int larg_matriz, int comp_matriz, double matriz[][comp_matriz], dou
     }
 }
 
-void tornar_viavel(int larg_matriz, int comp_matriz, double matriz[][comp_matriz], double * solucoes, double * solucao_objetivo, double * objetivo, int * indices) {
+void tornar_viavel(int larg_matriz, int comp_matriz, double matriz[larg_matriz][comp_real], double * solucoes, double * solucao_objetivo, double * objetivo, int * indices) {
     int i;
     int menor_larg = 0;
     for(i = 1; i < larg_matriz; i++) {
         if(solucoes[i] < solucoes[menor_larg]) menor_larg = i;
     }
-    printf("menor_larg = %d\n", menor_larg);
+
     int menor_comp = -1;
     for(i = 0; i < comp_matriz; i++) {
-        if(matriz[menor_larg][i] != 0 && objetivo[i] / matriz[menor_larg][i] > 0) {
+        if(matriz[menor_larg][i] != 0 && objetivo[i] / matriz[menor_larg][i] != 0) {
             if(menor_comp == -1) {
                 menor_comp = i;
             } else if(objetivo[i] / matriz[i][menor_comp] < objetivo[menor_comp] / matriz[menor_larg][menor_comp]) {
@@ -252,7 +303,7 @@ void tornar_viavel(int larg_matriz, int comp_matriz, double matriz[][comp_matriz
     pivotamento(larg_matriz, comp_matriz, matriz, solucoes, solucao_objetivo, objetivo, indices, menor_larg, menor_comp);
 }
 
-void otimizar_resultado(int larg_matriz, int comp_matriz, double matriz[][comp_matriz], double * solucoes, double * solucao_objetivo, double * objetivo, int * indices) {
+void otimizar_resultado(int larg_matriz, int comp_matriz, double matriz[larg_matriz][comp_real], double * solucoes, double * solucao_objetivo, double * objetivo, int * indices) {
     int i;
     int menor_comp = 0;
     for(i = 1; i < comp_matriz; i++) {
@@ -273,8 +324,17 @@ void otimizar_resultado(int larg_matriz, int comp_matriz, double matriz[][comp_m
     pivotamento(larg_matriz, comp_matriz, matriz, solucoes, solucao_objetivo, objetivo, indices, menor_larg, menor_comp);
 }
 
-void pivotamento(int larg_matriz, int comp_matriz, double matriz[][comp_matriz], double * solucoes, double * solucao_objetivo, double * objetivo, int * indices, int x, int y) {
-    printf("Interacao %d: sai x%d, entra x%d\n", 0, x, y);
+void pivotamento(int larg_matriz, int comp_matriz, double matriz[larg_matriz][comp_real], double * solucoes, double * solucao_objetivo, double * objetivo, int * indices, int x, int y) {
+    static int interacao = 1;
+
+	if(x == -1 || y == -1) {
+		fprintf(stderr, "ERRO: Matriz sem solucao.\n\n");
+		exit(1);
+	}
+	
+	printf("Interacao %d: sai x%d, entra x%d\n", interacao++, indices[x], y);
+	indices[x] = y;
+
     double pivo = matriz[x][y];
     int i, j;
     for(i = 0; i < comp_matriz; i++) {
@@ -286,17 +346,20 @@ void pivotamento(int larg_matriz, int comp_matriz, double matriz[][comp_matriz],
 
     for(i = 0; i < comp_matriz; i++) {
         objetivo[i] += multiplicar * matriz[x][i] * (-1);
-
+		if(abs((long)(objetivo[i] * PRECISAO)) == 0) objetivo[i] = abs(objetivo[i]);
     }
     (*solucao_objetivo) += multiplicar * solucoes[x] * (-1);
+	if(abs((long)((*solucao_objetivo) * PRECISAO)) == 0) (*solucao_objetivo) = abs((*solucao_objetivo));
 
     for(i = 0; i < larg_matriz; i++) {
         if(x == i) continue;
         multiplicar = matriz[i][y];
         for(j = 0; j < comp_matriz; j++) {
             matriz[i][j] += multiplicar * matriz[x][j] * (-1);
+			if(abs((long)(matriz[i][j] * PRECISAO)) == 0) matriz[i][j] = abs(matriz[i][j]);
         }
         solucoes[i] += multiplicar * solucoes[x] * (-1);
+		if(abs((long)(solucoes[i] * PRECISAO)) == 0) solucoes[i] = abs(solucoes[i]);
     }
-	print_matriz(larg_matriz, comp_matriz, matriz, solucoes, solucao_objetivo, objetivo, indices);
+	print_matriz(larg_matriz, comp_matriz, matriz, solucoes, (*solucao_objetivo), objetivo, indices);
 }
