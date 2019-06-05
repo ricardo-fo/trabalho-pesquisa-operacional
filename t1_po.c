@@ -29,6 +29,9 @@ void tornar_viavel(double[][*], double *, double *, int *);
 void otimizar_resultado(double[][*], double *, double *, int *);
 void pivotamento(double[][*], double *, double *, int *, int, int);
 
+void analizar_recursos(double[][*], double *, double *);
+void analizar_objetivos(double[][*], double *, double *, int *);
+
 int qntdd_var, qntdd_rest;
 int larg_matriz, comp_matriz, larg_real, comp_real;
 double solucao_objetivo;
@@ -50,13 +53,13 @@ int main()
 	double objetivos[comp_real];
 	for(i = 0; i < comp_real; i++) objetivos[i] = 0;
 
+	double solucoes[larg_real];
+	for(i = 0; i < larg_real; i++) solucoes[i] = 0;
+
 	double matriz[larg_real][comp_real];
 	for(i = 0; i < larg_real; i++) {
 		for(j = 0; j < comp_real; j++) matriz[i][j] = 0;
 	}
-
-	double solucoes[larg_real];
-	for(i = 0; i < larg_real; i++) solucoes[i] = 0;
 
 	int indices[comp_real];
 	for(i = 0; i < comp_real; i++) indices[i] = i + qntdd_var;
@@ -69,12 +72,22 @@ int main()
 
 	inicializar_matriz(matriz, objetivos, solucoes);
 
+	double objetivos_iniciais[comp_real];
+	for(i = 0; i < comp_real; i++) objetivos_iniciais[i] = objetivos[i];
+
+	double solucoes_iniciais[larg_real];
+	for(i = 0; i < larg_real; i++) solucoes_iniciais[i] = solucoes[i];
+
 	printf("\nQuadro inicial\n");
 	print_matriz(matriz, objetivos, solucoes, indices);
 
 	simplex(matriz, objetivos, solucoes, indices);
 
 	print_solucao(solucoes, indices);
+
+	printf("\nAnalise de Sensibilidade\n");
+	analizar_recursos(matriz, solucoes, solucoes_iniciais);
+	analizar_objetivos(matriz, objetivos, objetivos_iniciais, indices);
 
 	return 0;
 }
@@ -335,4 +348,49 @@ void pivotamento(double matriz[larg_matriz][comp_real], double * objetivos, doub
     }
 	
 	print_matriz(matriz, objetivos, solucoes, indices);
+}
+
+void analizar_recursos(double matriz[larg_matriz][comp_real], double * solucoes, double * solucoes_iniciais) {
+	double valor;
+	int i, j;
+
+	printf("\nRecursos\n\n");
+	for(i = qntdd_var; i < comp_matriz; i++) printf("x%d\t\t", i);
+	printf("\n");
+
+	for(i = 0; i < larg_matriz; i++) {
+		for(j = qntdd_var; j < comp_matriz; j++) {
+			if(abs((long)(matriz[i][j] * PRECISAO)) != 0) {
+				valor = solucoes[i] / matriz[i][j] * (-1);
+				valor += solucoes_iniciais[j - qntdd_var];
+				
+				if(matriz[i][j] > 0) printf("x%d>=%.0lf\t\t", j, valor);
+				else printf("x%d<=%.0lf\t\t", j, valor);
+			} else printf("-\t\t");
+		}
+		printf("\n");
+	}
+}
+
+void analizar_objetivos(double matriz[larg_matriz][comp_real], double * objetivos, double * objetivos_iniciais, int * indices) {
+	double valor;
+	int i, j;
+
+	printf("\nCoeficientes do Objetivo\n\n");
+	for(i = 0; i < qntdd_rest; i++) printf("c%d\t\t", indices[i]);
+	printf("\n");
+
+	for(j = qntdd_var; j < comp_matriz; j++) {
+		for(i = 0; i < larg_matriz; i++) {
+			
+			if(abs((long)(matriz[i][j] * PRECISAO)) != 0) {
+				valor = objetivos[j] / matriz[i][j] * (-1);
+				valor += objetivos_iniciais[indices[i]] * (-1);
+				
+				if(matriz[i][j] > 0) printf("c%d>=%.0lf\t\t", indices[i], valor);
+				else printf("c%d<=%.2lf\t\t", indices[i], valor);
+			} else printf("-\t\t");
+		}
+		printf("\n");
+	}
 }
